@@ -1,0 +1,12 @@
+{
+  "name": "gastos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Aplicativo pessoal de controle de gastos (PWA). Não há etapa de build: estes scripts são apenas utilitários de desenvolvimento, sem dependências.",
+  "type": "module",
+  "scripts": {
+    "start": "node tools/serve.mjs",
+    "test": "node tools/test.mjs",
+    "icons": "node tools/generate-icons.mjs"
+  }
+}
