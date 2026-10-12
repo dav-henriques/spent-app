@@ -10,12 +10,13 @@
 export const APP_NAME = 'Gastos';
 
 /** Versão exibida em Ajustes. Mantenha igual à VERSION de service-worker.js. */
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.1.1';
 
 /**
  * Versão do formato dos dados salvos. Ao mudar a estrutura das despesas ou
- * categorias, incremente este número e adicione um passo em MIGRATIONS
- * (js/model.js).
+ * categorias de forma incompatível, incremente este número e adicione um
+ * passo em MIGRATIONS (js/model.js). Campos novos e opcionais — como o
+ * `icon` das categorias, preenchido na normalização — não exigem migração.
  */
 export const SCHEMA_VERSION = 1;
 
@@ -46,38 +47,109 @@ export const LIMITS = Object.freeze({
 export const FALLBACK_COLOR = '#8E8E93';
 
 /**
- * Paleta oferecida para categorias: tons distintos entre si e legíveis sobre
- * o fundo preto. A ordem segue o círculo cromático.
+ * Paleta oferecida para categorias, baseada nas cores do sistema da Apple no
+ * modo escuro: tons distintos entre si e legíveis sobre o fundo preto.
  */
 export const CATEGORY_PALETTE = Object.freeze([
-  { color: '#F2C14E', name: 'Amarelo' },
-  { color: '#FF9A57', name: 'Laranja' },
-  { color: '#FF5C5C', name: 'Vermelho' },
-  { color: '#FF6EB4', name: 'Rosa' },
-  { color: '#D98BFF', name: 'Orquídea' },
-  { color: '#9D7BFF', name: 'Roxo' },
-  { color: '#4F8BFF', name: 'Azul' },
-  { color: '#56C2F0', name: 'Azul-claro' },
-  { color: '#2BC4B4', name: 'Verde-água' },
-  { color: '#34C77B', name: 'Verde' },
-  { color: '#C3DD5A', name: 'Lima' },
-  { color: '#B9875F', name: 'Caramelo' },
-  { color: '#E5E5E5', name: 'Gelo' },
+  { color: '#FF453A', name: 'Vermelho' },
+  { color: '#FF9F0A', name: 'Laranja' },
+  { color: '#FFD60A', name: 'Amarelo' },
+  { color: '#30D158', name: 'Verde' },
+  { color: '#63E6E2', name: 'Menta' },
+  { color: '#64D2FF', name: 'Ciano' },
+  { color: '#0A84FF', name: 'Azul' },
+  { color: '#5E5CE6', name: 'Índigo' },
+  { color: '#BF5AF2', name: 'Roxo' },
+  { color: '#FF6AB5', name: 'Rosa' },
+  { color: '#AC8E68', name: 'Marrom' },
   { color: '#8E8E93', name: 'Cinza' },
+  { color: '#D1D1D6', name: 'Prata' },
+  { color: '#636366', name: 'Grafite' },
 ]);
+
+/**
+ * Ícones disponíveis para categorias (símbolos em index.html, com o prefixo
+ * "c-"). A ordem é a da grade de escolha em Ajustes.
+ */
+export const CATEGORY_ICONS = Object.freeze([
+  { id: 'food', name: 'Refeição' },
+  { id: 'coffee', name: 'Café' },
+  { id: 'cart', name: 'Mercado' },
+  { id: 'bag', name: 'Compras' },
+  { id: 'shirt', name: 'Roupas' },
+  { id: 'bus', name: 'Ônibus' },
+  { id: 'car', name: 'Carro' },
+  { id: 'plane', name: 'Viagem' },
+  { id: 'house', name: 'Casa' },
+  { id: 'bolt', name: 'Energia' },
+  { id: 'phone', name: 'Celular' },
+  { id: 'heart', name: 'Saúde' },
+  { id: 'pill', name: 'Remédio' },
+  { id: 'sparkles', name: 'Cuidados' },
+  { id: 'dumbbell', name: 'Academia' },
+  { id: 'book', name: 'Estudos' },
+  { id: 'ticket', name: 'Ingresso' },
+  { id: 'game', name: 'Jogos' },
+  { id: 'music', name: 'Música' },
+  { id: 'gift', name: 'Presente' },
+  { id: 'repeat', name: 'Assinatura' },
+  { id: 'paw', name: 'Pet' },
+  { id: 'tag', name: 'Etiqueta' },
+  { id: 'dots', name: 'Outros' },
+]);
+
+export const FALLBACK_ICON = 'tag';
 
 /** Categorias criadas na primeira utilização. Os ids são estáveis. */
 export const DEFAULT_CATEGORIES = Object.freeze([
-  { id: 'alimentacao', name: 'Alimentação', color: '#F2C14E' },
-  { id: 'transporte', name: 'Transporte', color: '#4F8BFF' },
-  { id: 'compras', name: 'Compras', color: '#FF5C5C' },
-  { id: 'entretenimento', name: 'Entretenimento', color: '#9D7BFF' },
-  { id: 'saude', name: 'Saúde', color: '#34C77B' },
-  { id: 'educacao', name: 'Educação', color: '#56C2F0' },
-  { id: 'assinaturas', name: 'Assinaturas', color: '#FF6EB4' },
-  { id: 'casa', name: 'Casa', color: '#2BC4B4' },
-  { id: 'cuidados', name: 'Cuidados pessoais', color: '#FF9A57' },
-  { id: 'presentes', name: 'Presentes', color: '#C3DD5A' },
-  { id: 'viagens', name: 'Viagens', color: '#B9875F' },
-  { id: 'outros', name: 'Outros', color: '#8E8E93' },
+  { id: 'alimentacao', name: 'Alimentação', color: '#FFD60A', icon: 'food' },
+  { id: 'transporte', name: 'Transporte', color: '#0A84FF', icon: 'bus' },
+  { id: 'compras', name: 'Compras', color: '#FF453A', icon: 'bag' },
+  { id: 'entretenimento', name: 'Entretenimento', color: '#BF5AF2', icon: 'ticket' },
+  { id: 'saude', name: 'Saúde', color: '#30D158', icon: 'heart' },
+  { id: 'educacao', name: 'Educação', color: '#64D2FF', icon: 'book' },
+  { id: 'assinaturas', name: 'Assinaturas', color: '#FF6AB5', icon: 'repeat' },
+  { id: 'casa', name: 'Casa', color: '#63E6E2', icon: 'house' },
+  { id: 'cuidados', name: 'Cuidados pessoais', color: '#FF9F0A', icon: 'sparkles' },
+  { id: 'presentes', name: 'Presentes', color: '#5E5CE6', icon: 'gift' },
+  { id: 'viagens', name: 'Viagens', color: '#AC8E68', icon: 'plane' },
+  { id: 'outros', name: 'Outros', color: '#8E8E93', icon: 'dots' },
 ]);
+
+/**
+ * Cores padrão da versão 1.0. Categorias padrão que ainda usam essas cores
+ * (ou seja, que o usuário não personalizou) recebem as cores novas.
+ */
+export const LEGACY_DEFAULT_COLORS = Object.freeze({
+  alimentacao: '#F2C14E',
+  transporte: '#4F8BFF',
+  compras: '#FF5C5C',
+  entretenimento: '#9D7BFF',
+  saude: '#34C77B',
+  educacao: '#56C2F0',
+  assinaturas: '#FF6EB4',
+  casa: '#2BC4B4',
+  cuidados: '#FF9A57',
+  presentes: '#C3DD5A',
+  viagens: '#B9875F',
+  outros: '#8E8E93',
+});
+
+/**
+ * Descrições sugeridas por categoria, para registrar um gasto só com toques
+ * (sem abrir o teclado do celular). As descrições já usadas aparecem antes.
+ */
+export const QUICK_TITLES = Object.freeze({
+  alimentacao: ['Lanche', 'Almoço', 'Café', 'Mercado', 'Jantar'],
+  transporte: ['Ônibus', 'Metrô', 'Uber', 'Combustível'],
+  compras: ['Roupa', 'Tênis', 'Eletrônico', 'Presente para mim'],
+  entretenimento: ['Cinema', 'Show', 'Jogo', 'Passeio'],
+  saude: ['Farmácia', 'Consulta', 'Exame'],
+  educacao: ['Livro', 'Material escolar', 'Curso'],
+  assinaturas: ['Streaming', 'Música', 'Celular', 'Nuvem'],
+  casa: ['Contas', 'Limpeza', 'Decoração'],
+  cuidados: ['Cabelo', 'Cosméticos', 'Higiene'],
+  presentes: ['Aniversário', 'Lembrancinha'],
+  viagens: ['Passagem', 'Hospedagem', 'Passeio'],
+  outros: [],
+});

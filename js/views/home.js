@@ -11,8 +11,9 @@ import {
   timestampToLocalDate, timestampToLocalTime, formatShortDate, toISODate,
 } from '../dates.js';
 import { createDonut } from '../charts.js';
+import { normalizeText } from '../model.js';
 import {
-  esc, icon, colorStyle, expenseRowHTML, emptyStateHTML, periodControlsHTML, todayPillHTML,
+  esc, icon, categoryIconHTML, expenseRowHTML, emptyStateHTML, periodControlsHTML, todayPillHTML,
   updatePeriodControls, replayAnimation,
 } from '../ui.js';
 
@@ -20,7 +21,8 @@ const SUMMARY_LIMIT = 5;
 
 /** Texto secundário de cada despesa: categoria e, quando faz sentido, o horário. */
 export function expenseMeta(expense, category, { withDate = false, today = todayISO() } = {}) {
-  const parts = [category.name];
+  // Sem descrição, o título já é o nome da categoria: não repete.
+  const parts = normalizeText(expense.title) === normalizeText(category.name) ? [] : [category.name];
   if (withDate) parts.push(formatShortDate(expense.date, today));
   // O horário só é informativo se a despesa foi registrada no próprio dia.
   else if (timestampToLocalDate(expense.createdAt) === expense.date) parts.push(timestampToLocalTime(expense.createdAt));
@@ -30,25 +32,27 @@ export function expenseMeta(expense, category, { withDate = false, today = today
 /** Ajusta o tamanho do total para caber no centro do anel. */
 function totalFontSize(text) {
   const n = text.length;
-  if (n <= 6) return 34;
-  if (n <= 8) return 30;
-  if (n <= 10) return 26;
-  if (n <= 12) return 22;
-  return 19;
+  if (n <= 6) return 38;
+  if (n <= 8) return 33;
+  if (n <= 10) return 28;
+  if (n <= 12) return 24;
+  return 20;
 }
+
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 export function createHomeView(root) {
   root.innerHTML = `
     <header class="page-header home-header">
-      <h1 class="brand" tabindex="-1">${icon('logo', 'brand-mark')}<span data-app-name>${esc(APP_NAME)}</span></h1>
+      <h1 class="large-title" tabindex="-1" data-app-name>${esc(APP_NAME)}</h1>
       <div class="header-actions">
         ${todayPillHTML()}
-        <a class="icon-btn header-settings" href="#/ajustes" aria-label="Ajustes">${icon('settings')}</a>
+        <a class="circle-btn header-settings" href="#/ajustes" aria-label="Ajustes">${icon('settings')}</a>
       </div>
     </header>
     <div class="home-layout">
       <div class="home-summary-col">
-        ${periodControlsHTML()}
+        ${periodControlsHTML('home')}
         <section class="summary" aria-label="Resumo do período">
           <div class="donut" role="img">
             <svg class="donut-svg" aria-hidden="true" focusable="false"></svg>
@@ -62,7 +66,10 @@ export function createHomeView(root) {
         </section>
       </div>
       <section class="home-list-col" aria-labelledby="home-list-title">
-        <h2 class="section-title" id="home-list-title">Despesas</h2>
+        <div class="section-head">
+          <h2 class="section-title" id="home-list-title">Despesas</h2>
+          <a class="section-link" href="#/historico">Ver tudo</a>
+        </div>
         <div class="home-list"></div>
       </section>
     </div>`;
@@ -73,7 +80,8 @@ export function createHomeView(root) {
   const countEl = root.querySelector('.donut-count');
   const summaryWrap = root.querySelector('.cat-summary-wrap');
   const listEl = root.querySelector('.home-list');
-  const listTitle = root.querySelector('#home-list-title');
+  const listHead = root.querySelector('.home-list-col .section-head');
+  const seeAll = root.querySelector('.section-link');
   let showAllCategories = false;
   let lastRangeKey = '';
 
@@ -105,29 +113,36 @@ export function createHomeView(root) {
       const href = `#/historico?cat=${encodeURIComponent(row.categoryId)}&de=${range.start}&ate=${range.end}`;
       return `
         <li>
-          <a class="cat-row" href="${esc(href)}" style="${colorStyle(category.color)}"
+          <a class="cat-row" href="${esc(href)}"
             aria-label="${esc(`${category.name}: ${formatMoney(row.totalCents)}, ${formatPercent(row.percent)} do total. Ver despesas`)}">
-            <span class="dot" aria-hidden="true"></span>
-            <span class="cat-name">${esc(category.name)}</span>
-            <span class="cat-pct">${formatPercent(row.percent)}</span>
-            <span class="cat-value">${formatMoney(row.totalCents)}</span>
-            <span class="cat-bar" aria-hidden="true"><span style="width:${Math.max(row.percent, 0.8).toFixed(2)}%"></span></span>
+            ${categoryIconHTML(category, 'sm')}
+            <span class="cat-main">
+              <span class="cat-name">${esc(category.name)}</span>
+              <span class="cat-meta">${plural(row.count, 'despesa', 'despesas')}</span>
+            </span>
+            <span class="cat-figures">
+              <span class="cat-value">${formatMoney(row.totalCents)}</span>
+              <span class="cat-pct">${formatPercent(row.percent)}</span>
+            </span>
           </a>
         </li>`;
     }).join('');
     const toggle = hidden > 0 ? `
-      <button type="button" class="link-btn cat-toggle" data-toggle-categories aria-expanded="${showAllCategories}">
-        ${showAllCategories ? 'Mostrar menos' : `Mais ${hidden} ${hidden === 1 ? 'categoria' : 'categorias'}`}
-      </button>` : '';
-    summaryWrap.innerHTML = `<ul class="cat-summary card">${items}</ul>${toggle}`;
+      <li>
+        <button type="button" class="cat-toggle" data-toggle-categories aria-expanded="${showAllCategories}">
+          ${showAllCategories ? 'Mostrar menos' : `Mostrar mais ${plural(hidden, 'categoria', 'categorias')}`}
+        </button>
+      </li>` : '';
+    summaryWrap.innerHTML = `<ul class="cat-summary card">${items}${toggle}</ul>`;
   }
 
   function renderList(summary, range, today) {
     const total = store.getExpenses().length;
     if (summary.count === 0) {
-      listTitle.hidden = true;
+      listHead.hidden = true;
       listEl.innerHTML = total === 0
         ? emptyStateHTML({
+          glyph: 'plus',
           title: 'Nenhum gasto ainda',
           text: 'Adicione sua primeira despesa para começar.',
           action: { action: 'add-expense', label: 'Adicionar despesa' },
@@ -135,7 +150,8 @@ export function createHomeView(root) {
         : emptyStateHTML({ title: 'Nenhum gasto neste período.' });
       return;
     }
-    listTitle.hidden = false;
+    listHead.hidden = false;
+    seeAll.href = `#/historico?de=${range.start}&ate=${range.end}`;
     const flashId = store.consumeRecentlySaved();
     const sorted = sortByDate(summary.items, 'desc');
     const row = (e) => {

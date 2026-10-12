@@ -141,6 +141,21 @@ test('semana que atravessa dois anos', () => {
   assert.equal(w.start, '2025-12-29');
   assert.equal(w.end, '2026-01-04');
   assert.equal(dates.formatPeriodLabel(w), '29 de dezembro de 2025 – 4 de janeiro de 2026');
+  assert.equal(dates.formatPeriodLabel(w, { compact: true }), '29 dez. – 4 jan. 2026');
+});
+
+test('rótulos compactos para o botão do período', () => {
+  const today = '2026-10-12';
+  const week = dates.getPeriodRange('week', '2026-10-14');
+  assert.equal(dates.formatPeriodLabel(week, { compact: true }), '12 – 18 out. 2026');
+  const day = (iso) => dates.formatPeriodLabel(dates.getPeriodRange('day', iso), { compact: true, today });
+  assert.equal(day('2026-10-12'), 'hoje');
+  assert.equal(day('2026-10-11'), 'ontem');
+  assert.equal(day('2026-10-10'), 'sáb., 10 de out.');
+  assert.equal(day('2026-10-01'), 'qui., 1º de out.');
+  assert.equal(day('2025-10-10'), '10 de out. de 2025');
+  const month = dates.getPeriodRange('month', today);
+  assert.equal(dates.formatPeriodLabel(month, { compact: true }), 'outubro de 2026');
 });
 
 test('limites de mês, incluindo fevereiro e último dia', () => {
@@ -335,6 +350,47 @@ test('sugestões de descrição', () => {
   assert.equal(all[0].categoryId, 'outros'); // categoria mais recente
   assert.deepEqual(calc.titleSuggestions(list, 'on').map((s) => s.title), ['Ônibus']);
   assert.deepEqual(calc.titleSuggestions(list, 'lanche'), []); // já digitado por completo
+  assert.deepEqual(calc.titleSuggestions(list, '', 6, 'transporte').map((s) => s.title), ['Ônibus']);
+  assert.deepEqual(calc.titleSuggestions(list, '', 6, 'alimentacao').map((s) => s.title), ['Lanche']);
+});
+
+/* ------------------------------------------------------ teclado do app */
+
+const typeKeys = (keys, start = '') => keys.reduce((draft, key) => money.applyAmountKey(draft, key) ?? draft, start);
+
+test('teclado: digitação de valores', () => {
+  assert.equal(typeKeys(['1', '8', ',', '5', '0']), '18,50');
+  assert.equal(money.parseAmount(typeKeys(['1', '8', ',', '5', '0'])), 1850);
+  assert.equal(typeKeys(['1', '2']), '12');
+  assert.equal(money.parseAmount('12'), 1200);
+  assert.equal(typeKeys([',', '5']), '0,5');
+  assert.equal(typeKeys(['0', '0', '7']), '7'); // sem zeros à esquerda
+  assert.equal(typeKeys(['1', '2', '5', '0', ',', '9', '9']), '1250,99');
+});
+
+test('teclado: teclas recusadas', () => {
+  assert.equal(money.applyAmountKey('12,50', '1'), null); // terceira casa decimal
+  assert.equal(money.applyAmountKey('12,5', ','), null); // segunda vírgula
+  assert.equal(money.applyAmountKey('123456789', '0'), null); // limite de dígitos
+  assert.equal(money.applyAmountKey('12', 'x'), null);
+});
+
+test('teclado: apagar e limpar', () => {
+  assert.equal(money.applyAmountKey('18,50', 'backspace'), '18,5');
+  assert.equal(money.applyAmountKey('0,', 'backspace'), '');
+  assert.equal(money.applyAmountKey('', 'backspace'), '');
+  assert.equal(money.applyAmountKey('1250,99', 'clear'), '');
+});
+
+test('teclado: exibição e valor inicial na edição', () => {
+  assert.equal(money.formatAmountDraft(''), '0');
+  assert.equal(money.formatAmountDraft('1250,5'), '1.250,5');
+  assert.equal(money.formatAmountDraft('1234567'), '1.234.567');
+  assert.equal(money.formatAmountDraft('0,'), '0,');
+  assert.equal(money.draftFromCents(1850), '18,50');
+  assert.equal(money.draftFromCents(1200), '12');
+  assert.equal(money.draftFromCents(5), '0,05');
+  assert.equal(money.parseAmount(money.draftFromCents(123456)), 123456);
 });
 
 /* --------------------------------------------------------- gráfico anel */
@@ -382,6 +438,65 @@ test('normalização preserva o que é válido e separa o inválido', () => {
 
 test('normalizeText ignora acentos e maiúsculas', () => {
   assert.equal(model.normalizeText('  Ônibus  ESCOLAR '), 'onibus escolar');
+});
+
+test('categorias antigas recebem ícone padrão', () => {
+  assert.equal(model.normalizeCategory({ id: 'transporte', name: 'Transporte', color: '#4F8BFF' }).icon, 'bus');
+  assert.equal(model.normalizeCategory({ id: 'x', name: 'Pet', color: '#4F8BFF' }).icon, 'tag');
+  assert.equal(model.normalizeCategory({ id: 'x', name: 'Pet', color: '#4F8BFF', icon: 'paw' }).icon, 'paw');
+  assert.equal(model.normalizeCategory({ id: 'x', name: 'Pet', color: '#4F8BFF', icon: '<script>' }).icon, 'tag');
+});
+
+/* ------------------------------------------- dados (localStorage simulado) */
+
+const memory = new Map();
+globalThis.localStorage = {
+  get length() { return memory.size; },
+  key: (i) => [...memory.keys()][i] ?? null,
+  getItem: (k) => (memory.has(k) ? memory.get(k) : null),
+  setItem: (k, v) => { memory.set(k, String(v)); },
+  removeItem: (k) => { memory.delete(k); },
+  clear: () => memory.clear(),
+};
+// Dados como a versão 1.0 gravava: cores antigas e categorias sem ícone.
+memory.set('gastos.meta', JSON.stringify({ schemaVersion: 1 }));
+memory.set('gastos.categories', JSON.stringify([
+  { id: 'alimentacao', name: 'Alimentação', color: '#F2C14E' },
+  { id: 'transporte', name: 'Transporte', color: '#123456' }, // cor personalizada
+  { id: 'pet', name: 'Pet', color: '#4F8BFF' },
+]));
+memory.set('gastos.expenses', JSON.stringify([
+  { id: 'e1', title: 'Lanche', amountCents: 1850, categoryId: 'alimentacao', date: '2026-10-12', note: '', createdAt: '2026-10-12T12:00:00.000Z', updatedAt: '2026-10-12T12:00:00.000Z' },
+]));
+const store = await import('../js/store.js');
+store.init();
+
+test('atualização da 1.0: cores padrão novas, personalizadas preservadas, ícones adicionados', () => {
+  const cats = Object.fromEntries(store.getCategories().map((c) => [c.id, c]));
+  assert.equal(cats.alimentacao.color, '#FFD60A');
+  assert.equal(cats.alimentacao.icon, 'food');
+  assert.equal(cats.transporte.color, '#123456');
+  assert.equal(cats.pet.icon, 'tag');
+  assert.equal(store.getExpenses().length, 1);
+  const saved = JSON.parse(memory.get('gastos.categories'));
+  assert.equal(saved.find((c) => c.id === 'alimentacao').icon, 'food');
+});
+
+test('descrição opcional: sem descrição, a despesa recebe o nome da categoria', () => {
+  const e = store.addExpense({ amountCents: 1200, title: '   ', categoryId: 'transporte', date: '2026-10-12', note: '' });
+  assert.equal(e.title, 'Transporte');
+  const typed = store.addExpense({ amountCents: 500, title: 'Ônibus', categoryId: 'transporte', date: '2026-10-12', note: '' });
+  assert.equal(typed.title, 'Ônibus');
+  assert.equal(store.validateExpenseInput({ amountCents: 0, title: 'x', categoryId: 'transporte', date: '2026-10-12' }).ok, false);
+  assert.equal(store.validateExpenseInput({ amountCents: 100, title: '', categoryId: 'nao-existe', date: '2026-10-12' }).ok, false);
+  assert.equal(store.getExpenses().length, 3);
+});
+
+test('categoria com ícone: criar e validar', () => {
+  const c = store.addCategory({ name: 'Academia', color: '#30D158', icon: 'dumbbell' });
+  assert.equal(c.icon, 'dumbbell');
+  assert.throws(() => store.addCategory({ name: 'Outra', color: '#30D158', icon: 'inexistente' }));
+  assert.throws(() => store.addCategory({ name: 'academia', color: '#30D158', icon: 'tag' })); // nome repetido
 });
 
 /* ------------------------------------------------------------- resultado */

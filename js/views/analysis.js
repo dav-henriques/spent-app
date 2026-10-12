@@ -17,7 +17,8 @@ import {
 } from '../dates.js';
 import { barChartHTML } from '../charts.js';
 import {
-  esc, colorStyle, expenseRowHTML, emptyStateHTML, periodControlsHTML, todayPillHTML, updatePeriodControls, replayAnimation,
+  esc, colorStyle, categoryIconHTML, expenseRowHTML, emptyStateHTML, periodControlsHTML, todayPillHTML,
+  updatePeriodControls, replayAnimation,
 } from '../ui.js';
 import { expenseMeta } from './home.js';
 
@@ -47,10 +48,10 @@ function bucketLabel(mode, range) {
 export function createAnalysisView(root) {
   root.innerHTML = `
     <header class="page-header">
-      <h1 class="page-title" tabindex="-1">Análise</h1>
+      <h1 class="large-title" tabindex="-1">Análise</h1>
       <div class="header-actions">${todayPillHTML()}</div>
     </header>
-    ${periodControlsHTML()}
+    ${periodControlsHTML('analysis')}
     <div class="analysis-body"></div>`;
 
   const body = root.querySelector('.analysis-body');
@@ -74,9 +75,9 @@ export function createAnalysisView(root) {
           <span class="metric-label">Média por despesa</span>
           <span class="metric-value">${formatMoney(summary.averageCents)}</span>
         </div>
-        <a class="metric metric-link" href="${esc(topHref)}" style="${colorStyle(topCategory.color)}">
+        <a class="metric metric-link" href="${esc(topHref)}">
           <span class="metric-label">Maior categoria</span>
-          <span class="metric-value metric-category"><span class="dot" aria-hidden="true"></span>${esc(topCategory.name)}</span>
+          <span class="metric-value metric-category">${categoryIconHTML(topCategory, 'xs')}<span>${esc(topCategory.name)}</span></span>
           <span class="metric-detail">${formatMoney(top.totalCents)} · ${formatPercent(top.percent)}</span>
         </a>
       </div>`;
@@ -177,7 +178,7 @@ export function createAnalysisView(root) {
         <li>
           <a class="hbar" href="${esc(href)}" style="${colorStyle(category.color)}">
             <span class="hbar-top">
-              <span class="hbar-name"><span class="dot" aria-hidden="true"></span>${esc(category.name)}</span>
+              <span class="hbar-name">${categoryIconHTML(category, 'xs')}<span>${esc(category.name)}</span></span>
               <span class="hbar-value">${formatMoney(row.totalCents)} <span class="hbar-pct">${formatPercent(row.percent)}</span></span>
             </span>
             <span class="hbar-track" aria-hidden="true"><span style="width:${Math.max((row.totalCents / max) * 100, 1).toFixed(2)}%"></span></span>
@@ -211,6 +212,7 @@ export function createAnalysisView(root) {
 
     if (store.getExpenses().length === 0) {
       body.innerHTML = emptyStateHTML({
+        glyph: 'chart',
         title: 'Ainda não há o que analisar',
         text: 'Os indicadores aparecem conforme você registra suas despesas.',
         action: { action: 'add-expense', label: 'Adicionar despesa' },

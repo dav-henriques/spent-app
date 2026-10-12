@@ -93,8 +93,56 @@ export function parseAmount(input) {
   return cents;
 }
 
-/** Remove caracteres que não fazem parte de um valor (mantém dígitos, vírgula e ponto). */
-export const sanitizeAmountText = (text) => String(text).replace(/[^\d.,]/g, '');
+/* ------------------------------------------------------------------------ */
+/* Teclado numérico do app                                                   */
+/* ------------------------------------------------------------------------ */
+
+/**
+ * O valor em edição é um "rascunho" de texto com dígitos e, no máximo, uma
+ * vírgula ("1250,5"). As funções abaixo são puras, para que o teclado do app
+ * possa ser testado sem interface.
+ */
+export const AMOUNT_MAX_INTEGER_DIGITS = 9; // até R$ 999.999.999
+
+/**
+ * Aplica uma tecla ("0"–"9", ",", "backspace" ou "clear") ao rascunho.
+ * Devolve o novo rascunho, ou null quando a tecla é recusada (segunda
+ * vírgula, terceira casa decimal ou valor grande demais).
+ */
+export function applyAmountKey(draft, key) {
+  const text = draft ?? '';
+  const comma = text.indexOf(',');
+  if (key === 'clear') return '';
+  if (key === 'backspace') {
+    const next = text.slice(0, -1);
+    return next === '0' ? '' : next;
+  }
+  if (key === ',') {
+    if (comma !== -1) return null;
+    return text === '' ? '0,' : `${text},`;
+  }
+  if (!/^\d$/.test(key)) return null;
+  if (comma !== -1) return text.length - comma - 1 >= 2 ? null : text + key;
+  if (text === '' || text === '0') return key; // sem zeros à esquerda
+  if (text.length >= AMOUNT_MAX_INTEGER_DIGITS) return null;
+  return text + key;
+}
+
+/** Rascunho para exibição: "1250,5" → "1.250,5"; vazio → "0". */
+export function formatAmountDraft(draft) {
+  if (!draft) return '0';
+  const [integer, fraction] = draft.split(',');
+  const grouped = groupThousands(integer || '0');
+  return fraction === undefined ? grouped : `${grouped},${fraction}`;
+}
+
+/** Centavos → rascunho editável: 1850 → "18,50"; 1200 → "12". */
+export function draftFromCents(cents) {
+  if (!Number.isSafeInteger(cents) || cents <= 0) return '';
+  const reais = Math.floor(cents / 100);
+  const centavos = cents % 100;
+  return centavos ? `${reais},${String(centavos).padStart(2, '0')}` : String(reais);
+}
 
 /** 16.666… → "16,7%"; 50 → "50%"; valores ínfimos → "<0,1%". */
 export function formatPercent(percent) {

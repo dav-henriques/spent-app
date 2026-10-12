@@ -3,13 +3,15 @@
  * do app e, separado de tudo, a opção de apagar os dados.
  */
 import * as store from '../store.js';
-import { APP_NAME, APP_VERSION, CATEGORY_PALETTE, LIMITS } from '../config.js';
+import {
+  APP_NAME, APP_VERSION, CATEGORY_PALETTE, CATEGORY_ICONS, FALLBACK_ICON, LIMITS,
+} from '../config.js';
 import {
   exportJSON, exportCSV, analyzeBackup, applyImport, deliverFile, ImportError,
 } from '../backup.js';
 import { formatLongDate, timestampToLocalDate, timestampToLocalTime } from '../dates.js';
 import {
-  esc, icon, colorStyle, openSheet, closeSheet, showToast, confirmTwoStep,
+  esc, icon, colorStyle, categoryIconHTML, openSheet, closeSheet, showToast, confirmTwoStep,
 } from '../ui.js';
 import { getUpdateState, applyUpdate } from '../pwa.js';
 
@@ -21,10 +23,13 @@ const isIOS = () =>
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
+/** Ícone em quadrado arredondado, como no app Ajustes do iPhone. */
+const symbol = (name, variant = '') => `<span class="row-symbol${variant ? ` row-symbol-${variant}` : ''}" aria-hidden="true">${icon(name)}</span>`;
+
 export function createSettingsView(root) {
   root.innerHTML = `
     <header class="page-header">
-      <h1 class="page-title" tabindex="-1">Ajustes</h1>
+      <h1 class="large-title" tabindex="-1">Ajustes</h1>
     </header>
     <div class="settings-body"></div>
     <input type="file" class="visually-hidden" id="import-file" accept=".json,application/json" tabindex="-1" aria-hidden="true">`;
@@ -97,10 +102,10 @@ export function createSettingsView(root) {
 
     const categoryRows = categories.map((c) => `
       <li>
-        <button type="button" class="row" data-settings="edit-category" data-id="${esc(c.id)}" style="${colorStyle(c.color)}">
-          <span class="dot" aria-hidden="true"></span>
+        <button type="button" class="row" data-settings="edit-category" data-id="${esc(c.id)}">
+          ${categoryIconHTML(c, 'sm')}
           <span class="row-main">${esc(c.name)}</span>
-          <span class="row-detail">${plural(counts.get(c.id) ?? 0, 'despesa', 'despesas')}</span>
+          <span class="row-detail">${counts.get(c.id) ?? 0}</span>
           ${icon('chevron-right', 'icon-sm row-chevron')}
         </button>
       </li>`).join('');
@@ -110,9 +115,9 @@ export function createSettingsView(root) {
 
     const recoveryGroup = recovery.length ? `
       <section class="settings-section" aria-labelledby="st-recovery">
-        <h2 class="section-title" id="st-recovery">Cópias de recuperação</h2>
+        <h2 class="group-title" id="st-recovery">Cópias de recuperação</h2>
         <p class="section-note">Alguns dados não puderam ser lidos ou foram convertidos. Uma cópia original foi guardada; baixe-a antes de descartar.</p>
-        <ul class="card">${recovery.map((r) => `
+        <ul class="card list-inset">${recovery.map((r) => `
           <li class="row row-static">
             <span class="row-main">${esc(describeRecovery(r.key))}<span class="row-sub">${Math.max(1, Math.round(r.size / 1024))} KB</span></span>
             <button type="button" class="btn btn-secondary btn-small" data-settings="recovery-download" data-key="${esc(r.key)}">Baixar</button>
@@ -123,7 +128,7 @@ export function createSettingsView(root) {
 
     const installHint = isStandalone() ? '' : `
       <li class="row row-static row-multiline">
-        ${icon('share', 'row-icon')}
+        ${symbol('share')}
         <span class="row-main">Instalar na tela de início
           <span class="row-sub">${isIOS()
             ? 'No Safari, toque em Compartilhar e depois em “Adicionar à Tela de Início”. Instalado, o app abre em tela cheia e funciona sem internet.'
@@ -134,61 +139,56 @@ export function createSettingsView(root) {
     body.innerHTML = `
       ${storageWarning}
       <section class="settings-section" aria-labelledby="st-categories">
-        <h2 class="section-title" id="st-categories">Categorias</h2>
-        <ul class="card">
+        <h2 class="group-title" id="st-categories">Categorias</h2>
+        <ul class="card list-inset">
           ${categoryRows}
           <li>
             <button type="button" class="row row-action" data-settings="new-category">
-              ${icon('plus', 'row-icon')}<span class="row-main">Nova categoria</span>
+              <span class="cat-icon cat-icon-sm cat-icon-add" aria-hidden="true">${icon('plus')}</span>
+              <span class="row-main">Nova categoria</span>
             </button>
           </li>
         </ul>
       </section>
 
       <section class="settings-section" aria-labelledby="st-data">
-        <h2 class="section-title" id="st-data">Dados</h2>
-        <ul class="card">
-          <li class="row row-static row-multiline">
-            ${icon('device', 'row-icon')}
-            <span class="row-main">Salvos apenas neste aparelho
-              <span class="row-sub">${plural(expenseCount, 'despesa', 'despesas')} e ${plural(categories.length, 'categoria', 'categorias')} ficam guardadas neste navegador. Nada é enviado para servidores e não há sincronização entre aparelhos. Limpar os dados do navegador ou remover o app apaga os registros — exporte um backup de vez em quando.</span>
-            </span>
-          </li>
+        <h2 class="group-title" id="st-data">Dados</h2>
+        <ul class="card list-inset">
           <li><button type="button" class="row" data-settings="export-json">
-            ${icon('download', 'row-icon')}<span class="row-main">Exportar backup<span class="row-sub">Arquivo JSON para restaurar depois</span></span>
+            ${symbol('download')}<span class="row-main">Exportar backup<span class="row-sub">Arquivo JSON para restaurar depois</span></span>
           </button></li>
           <li><button type="button" class="row" data-settings="export-csv"${expenseCount ? '' : ' disabled'}>
-            ${icon('table', 'row-icon')}<span class="row-main">Exportar planilha<span class="row-sub">Despesas em CSV (Excel, Numbers, Planilhas)</span></span>
+            ${symbol('table')}<span class="row-main">Exportar planilha<span class="row-sub">CSV para Excel, Numbers ou Planilhas</span></span>
           </button></li>
           <li><button type="button" class="row" data-settings="import">
-            ${icon('upload', 'row-icon')}<span class="row-main">Restaurar backup<span class="row-sub">Importar um arquivo JSON exportado antes</span></span>
+            ${symbol('upload')}<span class="row-main">Restaurar backup<span class="row-sub">Importar um JSON exportado antes</span></span>
           </button></li>
         </ul>
+        <p class="group-footer">${icon('lock', 'icon-xs')} ${plural(expenseCount, 'despesa', 'despesas')} e ${plural(categories.length, 'categoria', 'categorias')} ficam salvas só neste aparelho. Nada é enviado para servidores e não há sincronização entre aparelhos. Limpar os dados do navegador ou remover o app apaga os registros — exporte um backup de vez em quando.</p>
       </section>
 
       ${recoveryGroup}
 
       <section class="settings-section" aria-labelledby="st-app">
-        <h2 class="section-title" id="st-app">Aplicativo</h2>
-        <ul class="card">
+        <h2 class="group-title" id="st-app">Aplicativo</h2>
+        <ul class="card list-inset">
           ${installHint}
           ${update === 'waiting' ? `
             <li><button type="button" class="row" data-settings="update">
-              ${icon('download', 'row-icon')}<span class="row-main">Atualização disponível<span class="row-sub">Toque para carregar a nova versão</span></span>
+              ${symbol('download')}<span class="row-main">Atualização disponível<span class="row-sub">Toque para carregar a nova versão</span></span>
             </button></li>` : ''}
           <li class="row row-static">
-            ${icon('info', 'row-icon')}
+            ${symbol('info')}
             <span class="row-main"><span data-app-name>${esc(APP_NAME)}</span></span>
-            <span class="row-detail">versão ${esc(APP_VERSION)}</span>
+            <span class="row-detail">${esc(APP_VERSION)}</span>
           </li>
         </ul>
       </section>
 
-      <section class="settings-section settings-danger" aria-labelledby="st-danger">
-        <h2 class="section-title" id="st-danger">Zona de risco</h2>
-        <ul class="card">
+      <section class="settings-section settings-danger" aria-label="Apagar dados">
+        <ul class="card list-inset">
           <li><button type="button" class="row row-danger" data-settings="erase">
-            ${icon('trash', 'row-icon')}<span class="row-main">Apagar todos os dados</span>
+            <span class="row-main">Apagar todos os dados</span>
           </button></li>
         </ul>
       </section>`;
@@ -222,33 +222,50 @@ function swatchesHTML(selected) {
       aria-label="${esc(p.name)}" aria-pressed="${p.color === selected}">${icon('check', 'swatch-check')}</button>`).join('');
 }
 
+function iconGridHTML(selected) {
+  return CATEGORY_ICONS.map((i) => `
+    <button type="button" class="icon-choice" data-icon="${i.id}" aria-label="${esc(i.name)}" aria-pressed="${i.id === selected}">
+      <svg aria-hidden="true" focusable="false"><use href="#c-${i.id}"></use></svg>
+    </button>`).join('');
+}
+
 function openCategoryEditor(id) {
   const category = id ? store.getCategories().find((c) => c.id === id) : null;
   if (id && !category) return;
   const isEdit = Boolean(category);
   let color = isEdit ? category.color : store.suggestCategoryColor();
+  let iconId = isEdit ? category.icon : FALLBACK_ICON;
   const usage = isEdit ? store.countByCategory().get(id) ?? 0 : 0;
   const isLast = store.getCategories().length <= 1;
 
   const body = `
-    <form id="category-form" novalidate>
-      <div class="field">
-        <label class="field-label" for="c-name">Nome</label>
-        <input class="input" id="c-name" maxlength="${LIMITS.categoryNameMax}" autocomplete="off" autocapitalize="sentences"
-          enterkeyhint="done" value="${isEdit ? esc(category.name) : ''}" placeholder="Ex.: Lanches da escola">
-        <p class="field-error" id="c-name-error" hidden></p>
+    <form id="category-form" class="category-form" novalidate>
+      <div class="cat-preview" style="${colorStyle(color)}">
+        <span class="cat-icon cat-icon-xl" aria-hidden="true"><svg focusable="false"><use href="#c-${esc(iconId)}"></use></svg></span>
       </div>
-      <fieldset class="field">
-        <legend class="field-label">Cor</legend>
+      <div class="form-card">
+        <label class="visually-hidden" for="c-name">Nome</label>
+        <input class="form-input form-input-center" id="c-name" maxlength="${LIMITS.categoryNameMax}" autocomplete="off"
+          autocapitalize="sentences" enterkeyhint="done" value="${isEdit ? esc(category.name) : ''}" placeholder="Nome da categoria">
+      </div>
+      <p class="field-error" id="c-name-error" hidden></p>
+
+      <fieldset class="form-fieldset">
+        <legend class="form-label">Cor</legend>
         <div class="swatches">${swatchesHTML(color)}</div>
       </fieldset>
+      <fieldset class="form-fieldset">
+        <legend class="form-label">Ícone</legend>
+        <div class="icon-grid" style="${colorStyle(color)}">${iconGridHTML(iconId)}</div>
+      </fieldset>
+
       ${isEdit ? `
         <div class="form-danger">
-          <p class="form-meta">${usage ? `Usada em ${plural(usage, 'despesa', 'despesas')}.` : 'Nenhuma despesa usa esta categoria.'}</p>
-          <button type="button" class="btn btn-danger btn-block" data-delete-category${isLast ? ' disabled' : ''}>
-            ${icon('trash')} Excluir categoria
+          <button type="button" class="btn btn-danger-plain btn-block" data-delete-category${isLast ? ' disabled' : ''}>
+            Excluir categoria
           </button>
-          ${isLast ? '<p class="form-meta">É preciso manter ao menos uma categoria.</p>' : ''}
+          <p class="form-meta">${isLast ? 'É preciso manter ao menos uma categoria.'
+            : usage ? `Usada em ${plural(usage, 'despesa', 'despesas')}. Elas serão movidas, nunca apagadas.` : 'Nenhuma despesa usa esta categoria.'}</p>
         </div>` : ''}
     </form>`;
   const footer = `<button type="submit" form="category-form" class="btn btn-primary btn-block" data-save>${isEdit ? 'Salvar' : 'Criar categoria'}</button>`;
@@ -257,12 +274,13 @@ function openCategoryEditor(id) {
     title: isEdit ? 'Editar categoria' : 'Nova categoria',
     body,
     footer,
-    initialFocus: isEdit ? null : '#c-name',
   });
   const form = panel.querySelector('#category-form');
   const nameInput = form.querySelector('#c-name');
   const error = form.querySelector('#c-name-error');
   const saveButton = panel.querySelector('[data-save]');
+  const preview = form.querySelector('.cat-preview');
+  const grid = form.querySelector('.icon-grid');
 
   const validate = () => {
     const name = nameInput.value.trim();
@@ -273,12 +291,26 @@ function openCategoryEditor(id) {
     saveButton.disabled = !name || Boolean(message);
   };
 
+  const updatePreview = () => {
+    preview.setAttribute('style', colorStyle(color));
+    grid.setAttribute('style', colorStyle(color));
+    preview.querySelector('use').setAttribute('href', `#c-${iconId}`);
+  };
+
   nameInput.addEventListener('input', validate);
   form.addEventListener('click', (event) => {
     const swatch = event.target.closest('[data-color]');
     if (swatch) {
       color = swatch.dataset.color;
       form.querySelectorAll('[data-color]').forEach((el) => el.setAttribute('aria-pressed', String(el.dataset.color === color)));
+      updatePreview();
+      return;
+    }
+    const choice = event.target.closest('[data-icon]');
+    if (choice) {
+      iconId = choice.dataset.icon;
+      form.querySelectorAll('[data-icon]').forEach((el) => el.setAttribute('aria-pressed', String(el.dataset.icon === iconId)));
+      updatePreview();
       return;
     }
     const del = event.target.closest('[data-delete-category]');
@@ -299,8 +331,8 @@ function openCategoryEditor(id) {
     validate();
     if (saveButton.disabled) return;
     try {
-      if (isEdit) store.updateCategory(id, { name: nameInput.value, color });
-      else store.addCategory({ name: nameInput.value, color });
+      if (isEdit) store.updateCategory(id, { name: nameInput.value, color, icon: iconId });
+      else store.addCategory({ name: nameInput.value, color, icon: iconId });
       closeSheet();
       showToast(isEdit ? 'Categoria atualizada' : 'Categoria criada');
     } catch (err) {
@@ -318,9 +350,9 @@ function openReassign(category, usage) {
   const body = `
     <p class="sheet-text">${esc(plural(usage, 'despesa usa', 'despesas usam'))} “${esc(category.name)}”.
       Escolha para qual categoria ${usage === 1 ? 'ela será movida' : 'elas serão movidas'} antes da exclusão. Nenhuma despesa será apagada.</p>
-    <div class="chip-grid">${others.map((c) => `
-      <button type="button" class="chip" data-target="${esc(c.id)}" style="${colorStyle(c.color)}" aria-pressed="false">
-        <span class="dot" aria-hidden="true"></span>${esc(c.name)}
+    <div class="chip-wrap">${others.map((c) => `
+      <button type="button" class="cat-chip" data-target="${esc(c.id)}" style="${colorStyle(c.color)}" aria-pressed="false">
+        <svg class="cat-chip-icon" aria-hidden="true" focusable="false"><use href="#c-${esc(c.icon)}"></use></svg>${esc(c.name)}
       </button>`).join('')}
     </div>`;
   const footer = `

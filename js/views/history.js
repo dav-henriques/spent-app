@@ -9,7 +9,7 @@ import {
   todayISO, formatDayHeading, formatRange, formatLongDate, capitalize, getPeriodRange, addDays, addMonths, isValidISODate,
 } from '../dates.js';
 import {
-  esc, icon, colorStyle, expenseRowHTML, emptyStateHTML, openSheet, closeSheet,
+  esc, icon, colorStyle, categoryIconHTML, expenseRowHTML, emptyStateHTML, openSheet, closeSheet,
 } from '../ui.js';
 import { expenseMeta } from './home.js';
 
@@ -21,11 +21,11 @@ export function createHistoryView(root) {
 
   root.innerHTML = `
     <header class="page-header">
-      <h1 class="page-title" tabindex="-1">Histórico</h1>
+      <h1 class="large-title" tabindex="-1">Histórico</h1>
     </header>
     <div class="search">
       ${icon('search', 'search-icon')}
-      <input type="search" class="input search-input" placeholder="Buscar descrição" aria-label="Buscar por descrição"
+      <input type="search" class="search-input" placeholder="Buscar" aria-label="Buscar por descrição"
         enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false">
     </div>
     <div class="filter-bar" role="group" aria-label="Filtros">
@@ -87,7 +87,7 @@ export function createHistoryView(root) {
     const category = filters.categoryId ? store.getCategory(filters.categoryId) : null;
     categoryChip.classList.toggle('is-active', Boolean(category));
     categoryChip.innerHTML = category
-      ? `<span class="dot" style="${colorStyle(category.color)}" aria-hidden="true"></span>${esc(category.name)}${icon('chevron-down', 'icon-xs')}`
+      ? `<svg class="filter-chip-icon" style="${colorStyle(category.color)}" aria-hidden="true"><use href="#c-${esc(category.icon)}"></use></svg>${esc(category.name)}${icon('chevron-down', 'icon-xs')}`
       : `Categoria${icon('chevron-down', 'icon-xs')}`;
     categoryChip.setAttribute('aria-label', `Filtrar por categoria: ${category ? category.name : 'todas'}`);
 
@@ -108,6 +108,7 @@ export function createHistoryView(root) {
       summaryEl.innerHTML = '';
       moreEl.innerHTML = '';
       listEl.innerHTML = emptyStateHTML({
+        glyph: 'history',
         title: 'Nenhuma despesa registrada',
         text: 'Tudo o que você registrar aparecerá aqui.',
         action: { action: 'add-expense', label: 'Adicionar despesa' },
@@ -125,9 +126,10 @@ export function createHistoryView(root) {
       moreEl.innerHTML = '';
       listEl.innerHTML = `
         <div class="empty">
+          <span class="empty-glyph" aria-hidden="true">${icon('search')}</span>
           <p class="empty-title">Nada encontrado</p>
           <p class="empty-text">Nenhuma despesa corresponde a esta busca ou filtro.</p>
-          <button type="button" class="btn btn-secondary btn-small" data-history="clear">Limpar filtros</button>
+          <button type="button" class="btn btn-tinted btn-small" data-history="clear">Limpar filtros</button>
         </div>`;
       return;
     }
@@ -161,13 +163,13 @@ export function createHistoryView(root) {
     const rows = [{ id: '', name: 'Todas as categorias', color: null }, ...store.getCategories()].map((c) => `
       <li>
         <button type="button" class="row" data-pick-category="${esc(c.id)}" aria-pressed="${filters.categoryId === c.id}">
-          ${c.color ? `<span class="dot" style="${colorStyle(c.color)}" aria-hidden="true"></span>` : `<span class="dot dot-all" aria-hidden="true"></span>`}
+          ${c.color ? categoryIconHTML(c, 'sm') : `<span class="cat-icon cat-icon-sm cat-icon-all" aria-hidden="true">${icon('grid')}</span>`}
           <span class="row-main">${esc(c.name)}</span>
           ${c.id ? `<span class="row-detail">${counts.get(c.id) ?? 0}</span>` : ''}
           ${filters.categoryId === c.id ? icon('check', 'row-check') : ''}
         </button>
       </li>`).join('');
-    const panel = openSheet({ title: 'Categoria', body: `<ul class="card list-plain">${rows}</ul>` });
+    const panel = openSheet({ title: 'Categoria', body: `<ul class="card list-plain list-inset">${rows}</ul>` });
     panel.querySelector('.sheet-content').addEventListener('click', (event) => {
       const button = event.target.closest('[data-pick-category]');
       if (!button) return;

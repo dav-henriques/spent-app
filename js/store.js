@@ -7,13 +7,14 @@
  * a interface nunca mostra algo que não foi salvo.
  */
 import {
-  STORAGE_KEYS, SCHEMA_VERSION, DEFAULT_CATEGORIES, LIMITS, CATEGORY_PALETTE,
+  STORAGE_KEYS, SCHEMA_VERSION, DEFAULT_CATEGORIES, LIMITS, CATEGORY_PALETTE, LEGACY_DEFAULT_COLORS,
 } from './config.js';
 import {
   isStorageAvailable, readJSON, writeMany, preserveForRecovery, listRecoveryEntries, removeKey,
 } from './storage.js';
 import {
   createId, normalizeDataset, normalizePrefs, normalizeText, migrate, cleanSingleLine, cleanMultiline, isHexColor,
+  isCategoryIcon,
 } from './model.js';
 import {
   getPeriodRange, shiftAnchor, todayISO, isValidISODate, PERIOD_MODES,
@@ -125,6 +126,17 @@ export function init() {
   }
   if (report.recoveredCategories || report.reassignedIds) dirty = true;
 
+  // Versão 1.1: categorias ganharam ícone, e as padrão que mantinham a cor
+  // original da 1.0 passam para a paleta nova. Cores personalizadas não mudam.
+  if (rawCategories.some((c) => c && typeof c === 'object' && !c.icon)) dirty = true;
+  for (const category of categories) {
+    const fresh = DEFAULT_CATEGORIES.find((c) => c.id === category.id);
+    if (fresh && LEGACY_DEFAULT_COLORS[category.id] === category.color) {
+      category.color = fresh.color;
+      dirty = true;
+    }
+  }
+
   state.expenses = expenses;
   state.categories = categories;
   state.prefs = normalizePrefs(prefsRead.value);
@@ -167,7 +179,7 @@ export const getPrefs = () => state.prefs;
 export const getIssues = () => state.issues;
 export const isPersistent = () => state.persistent;
 
-const MISSING_CATEGORY = Object.freeze({ id: '', name: 'Sem categoria', color: '#8E8E93' });
+const MISSING_CATEGORY = Object.freeze({ id: '', name: 'Sem categoria', color: '#8E8E93', icon: 'tag' });
 
 /** Sempre devolve uma categoria exibível, mesmo para ids desconhecidos. */
 export function getCategory(id) {
@@ -202,18 +214,21 @@ export function consumeRecentlySaved() {
 /**
  * Valida os campos de uma despesa vinda do formulário.
  * Devolve { ok, errors, value } — `value` já normalizado quando ok.
+ *
+ * A descrição é opcional para que um gasto possa ser registrado só com
+ * toques: sem ela, a despesa recebe o nome da categoria.
  */
 export function validateExpenseInput(input) {
   const errors = {};
-  const title = cleanSingleLine(input.title, LIMITS.titleMax);
+  const category = state.categories.find((c) => c.id === input.categoryId);
   const note = cleanMultiline(input.note, LIMITS.noteMax);
   const amountCents = input.amountCents;
   if (!Number.isSafeInteger(amountCents) || amountCents <= 0 || amountCents > LIMITS.maxCents) {
     errors.amount = 'Digite um valor maior que zero.';
   }
-  if (!title) errors.title = 'Escreva uma descrição curta.';
-  if (!state.categories.some((c) => c.id === input.categoryId)) errors.category = 'Escolha uma categoria.';
+  if (!category) errors.category = 'Escolha uma categoria.';
   if (!isValidISODate(input.date)) errors.date = 'Escolha uma data válida.';
+  const title = cleanSingleLine(input.title, LIMITS.titleMax) || category?.name || '';
   const ok = Object.keys(errors).length === 0;
   return { ok, errors, value: ok ? { title, note, amountCents, categoryId: input.categoryId, date: input.date } : null };
 }
@@ -271,12 +286,13 @@ export function isCategoryNameTaken(name, exceptId = null) {
   return state.categories.some((c) => c.id !== exceptId && normalizeText(c.name) === wanted);
 }
 
-function validateCategoryInput({ name, color }, exceptId = null) {
+function validateCategoryInput({ name, color, icon }, exceptId = null) {
   const cleanName = cleanSingleLine(name, LIMITS.categoryNameMax);
   if (!cleanName) throw new StoreError('Dê um nome para a categoria.');
   if (isCategoryNameTaken(cleanName, exceptId)) throw new StoreError('Já existe uma categoria com esse nome.');
   if (!isHexColor(color)) throw new StoreError('Escolha uma cor.');
-  return { name: cleanName, color: color.toUpperCase() };
+  if (!isCategoryIcon(icon)) throw new StoreError('Escolha um ícone.');
+  return { name: cleanName, color: color.toUpperCase(), icon };
 }
 
 export function addCategory(input) {

@@ -175,30 +175,46 @@ export function formatLongDate(iso, { withYear = true } = {}) {
 
 /**
  * Intervalo de datas: "5 – 11 de outubro de 2026",
- * "28 de setembro – 4 de outubro de 2026" ou, com `compact`, "28 set. – 4 out. 2026".
+ * "28 de setembro – 4 de outubro de 2026". Com `compact` (para espaços
+ * estreitos, como o botão do período): "5 – 11 out. 2026",
+ * "28 set. – 4 out. 2026" e, na virada do ano, "29 dez. – 4 jan. 2026".
  */
 export function formatRange(start, end, { compact = false } = {}) {
   if (start === end) return formatLongDate(start);
   const s = parseISODate(start);
   const e = parseISODate(end);
-  const month = (m) => (compact ? `${MONTHS_SHORT[m - 1]}.` : `de ${MONTHS[m - 1]}`);
-  const year = (y) => (compact ? ` ${y}` : ` de ${y}`);
+  if (compact) {
+    const month = (m) => `${MONTHS_SHORT[m - 1]}.`;
+    if (s.m === e.m && s.y === e.y) return `${dayOfMonth(s.d)} – ${e.d} ${month(e.m)} ${e.y}`;
+    return `${dayOfMonth(s.d)} ${month(s.m)} – ${dayOfMonth(e.d)} ${month(e.m)} ${e.y}`;
+  }
   if (s.y !== e.y) {
-    return `${dayOfMonth(s.d)} ${month(s.m)}${year(s.y)} – ${dayOfMonth(e.d)} ${month(e.m)}${year(e.y)}`;
+    return `${dayOfMonth(s.d)} de ${MONTHS[s.m - 1]} de ${s.y} – ${dayOfMonth(e.d)} de ${MONTHS[e.m - 1]} de ${e.y}`;
   }
   if (s.m !== e.m) {
-    return `${dayOfMonth(s.d)} ${month(s.m)} – ${dayOfMonth(e.d)} ${month(e.m)}${year(e.y)}`;
+    return `${dayOfMonth(s.d)} de ${MONTHS[s.m - 1]} – ${dayOfMonth(e.d)} de ${MONTHS[e.m - 1]} de ${e.y}`;
   }
   return `${dayOfMonth(s.d)} – ${e.d} de ${MONTHS[e.m - 1]} de ${e.y}`;
 }
 
 export const formatMonthYear = (y, m) => `${MONTHS[m - 1]} de ${y}`;
 
+/** Dia em formato curto: "hoje", "ontem", "sáb., 10 de out." ou "10 de out. de 2025". */
+export function formatDayCompact(iso, today = todayISO()) {
+  if (iso === today) return 'hoje';
+  if (iso === addDays(today, -1)) return 'ontem';
+  const p = parseISODate(iso);
+  if (p.y === parseISODate(today).y) {
+    return `${WEEKDAYS_SHORT[weekday(iso)]}., ${dayOfMonth(p.d)} de ${MONTHS_SHORT[p.m - 1]}.`;
+  }
+  return `${dayOfMonth(p.d)} de ${MONTHS_SHORT[p.m - 1]}. de ${p.y}`;
+}
+
 /** Rótulo do período em minúsculas, pronto para uso no meio de frases. */
-export function formatPeriodLabel(range, { compact = false } = {}) {
+export function formatPeriodLabel(range, { compact = false, today = todayISO() } = {}) {
   const s = parseISODate(range.start);
   switch (range.mode) {
-    case 'day': return formatLongDate(range.start);
+    case 'day': return compact ? formatDayCompact(range.start, today) : formatLongDate(range.start);
     case 'week': return formatRange(range.start, range.end, { compact });
     case 'month': return formatMonthYear(s.y, s.m);
     case 'year': return String(s.y);

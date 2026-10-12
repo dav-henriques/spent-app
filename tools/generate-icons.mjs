@@ -21,16 +21,16 @@ import { dirname, join } from 'node:path';
 
 const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', 'assets');
 
-const BACKGROUND = '#090909';
+const BACKGROUND = '#000000';
 // Proporções relativas ao lado do ícone.
 const RING_RADIUS = 0.285;
-const RING_STROKE = 0.092;
-const RING_GAP = 0.045; // espaço visível entre as pontas arredondadas
+const RING_STROKE = 0.1;
+const RING_GAP = 0.04; // espaço visível entre as pontas arredondadas
 const SEGMENTS = [
-  { share: 0.40, color: '#F2C14E' },
-  { share: 0.25, color: '#4F8BFF' },
-  { share: 0.20, color: '#FF5C5C' },
-  { share: 0.15, color: '#9D7BFF' },
+  { share: 0.40, color: '#FFD60A' },
+  { share: 0.25, color: '#0A84FF' },
+  { share: 0.20, color: '#FF453A' },
+  { share: 0.15, color: '#BF5AF2' },
 ];
 
 /** Ângulos visíveis de cada segmento (radianos, sentido horário a partir do topo). */

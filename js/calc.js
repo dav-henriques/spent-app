@@ -189,14 +189,16 @@ export function filterExpenses(expenses, { query = '', categoryId = '', from = '
 /**
  * Sugestões de descrição para o cadastro rápido, com base nas despesas mais
  * recentes. Cada sugestão traz a categoria usada da última vez com aquele texto.
+ * Com `categoryId`, considera apenas as descrições usadas naquela categoria.
  */
-export function titleSuggestions(expenses, prefix = '', limit = 6) {
+export function titleSuggestions(expenses, prefix = '', limit = 6, categoryId = '') {
   const recent = [...expenses].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, 300);
   const wanted = normalizeText(prefix);
   const scores = new Map();
   recent.forEach((e, index) => {
     const key = normalizeText(e.title);
     if (!key || (wanted && (!key.startsWith(wanted) || key === wanted))) return;
+    if (categoryId && e.categoryId !== categoryId) return;
     const entry = scores.get(key) ?? { title: e.title, categoryId: e.categoryId, score: 0 };
     entry.score += 1 + (300 - index) / 300; // frequência, com peso para o que é recente
     scores.set(key, entry);

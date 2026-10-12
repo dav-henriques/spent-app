@@ -11,9 +11,9 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 
 const SIZE = 240;
 const CENTER = SIZE / 2;
-const RADIUS = 104;
-const STROKE = 16;
-const GAP = 7; // espaço visível entre as pontas arredondadas de dois segmentos
+const RADIUS = 102;
+const STROKE = 18;
+const GAP = 6; // espaço visível entre as pontas arredondadas de dois segmentos
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 /**

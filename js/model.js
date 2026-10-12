@@ -6,7 +6,9 @@
  * registros inválidos são devolvidos à parte para que quem chamou possa
  * preservá-los, nunca descartados em silêncio.
  */
-import { LIMITS, FALLBACK_COLOR, SCHEMA_VERSION } from './config.js';
+import {
+  LIMITS, FALLBACK_COLOR, FALLBACK_ICON, SCHEMA_VERSION, CATEGORY_ICONS, DEFAULT_CATEGORIES,
+} from './config.js';
 import { isValidISODate } from './dates.js';
 
 const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
@@ -40,6 +42,14 @@ export function cleanMultiline(value, max) {
 }
 
 export const isHexColor = (value) => typeof value === 'string' && HEX_COLOR_RE.test(value);
+
+const ICON_IDS = new Set(CATEGORY_ICONS.map((i) => i.id));
+export const isCategoryIcon = (value) => ICON_IDS.has(value);
+
+/** Ícone padrão: o da categoria padrão de mesmo id, ou uma etiqueta genérica. */
+export function defaultIconFor(categoryId) {
+  return DEFAULT_CATEGORIES.find((c) => c.id === categoryId)?.icon ?? FALLBACK_ICON;
+}
 
 function canonicalTimestamp(value) {
   if (typeof value !== 'string' && typeof value !== 'number') return null;
@@ -78,10 +88,13 @@ export function normalizeCategory(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const name = cleanSingleLine(raw.name, LIMITS.categoryNameMax);
   if (!name && !cleanId(raw.id)) return null;
+  const id = cleanId(raw.id) ?? createId();
   return {
-    id: cleanId(raw.id) ?? createId(),
+    id,
     name: name || 'Sem nome',
     color: isHexColor(raw.color) ? raw.color.toUpperCase() : FALLBACK_COLOR,
+    // Campo opcional (adicionado na versão 1.1): dados antigos recebem um ícone padrão.
+    icon: isCategoryIcon(raw.icon) ? raw.icon : defaultIconFor(id),
   };
 }
 
@@ -137,7 +150,7 @@ export function normalizeDataset({ expenses, categories }) {
       expense.categoryId = fallback ? fallback.id : 'recuperada';
     }
     if (!categoryIds.has(expense.categoryId)) {
-      categoryList.push({ id: expense.categoryId, name: recoveredName(), color: FALLBACK_COLOR });
+      categoryList.push({ id: expense.categoryId, name: recoveredName(), color: FALLBACK_COLOR, icon: FALLBACK_ICON });
       categoryIds.add(expense.categoryId);
       report.recoveredCategories += 1;
     }
