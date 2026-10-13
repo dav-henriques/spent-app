@@ -12,7 +12,7 @@
  *
  * Os dados do usuário ficam no localStorage e não passam por aqui.
  */
-const VERSION = '1.1.1';
+const VERSION = '1.2.0';
 const CACHE_PREFIX = 'gastos-';
 const CACHE_NAME = `${CACHE_PREFIX}${VERSION}`;
 
@@ -33,6 +33,7 @@ const ASSETS = [
   './js/charts.js',
   './js/ui.js',
   './js/keypad.js',
+  './js/atmosphere.js',
   './js/expense-form.js',
   './js/backup.js',
   './js/router.js',

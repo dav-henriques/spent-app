@@ -78,13 +78,20 @@ export function createDonut(svg) {
     return el;
   }
 
-  /** items: [{ key, value, color }] — valores em centavos, já ordenados. */
+  /**
+   * items: [{ key, value, color }] — valores em centavos, já ordenados.
+   * Devolve a geometria de cada segmento ({ key, color, share, angle }),
+   * usada pela aura para emitir luz a partir do lugar certo do anel.
+   */
   function update(items) {
     const data = items.filter((item) => item.value > 0);
     svg.classList.toggle('is-empty', data.length === 0);
     const spans = layoutDonut(data.map((item) => item.value));
+    const total = data.reduce((sum, item) => sum + item.value, 0);
     const seen = new Set();
+    const geometry = [];
     let cursor = 0;
+    let newcomers = 0;
 
     data.forEach((item, index) => {
       const span = spans[index];
@@ -112,17 +119,27 @@ export function createDonut(svg) {
         el = createSegment();
         group.append(el);
         segments.set(item.key, el);
-        // Nasce como um ponto no meio do próprio arco e cresce até o tamanho final.
+        // Nasce como um ponto no meio do próprio arco e cresce até o tamanho final;
+        // os segmentos novos entram em sequência, do maior para o menor.
         el.style.strokeDasharray = `0.01 ${CIRCUMFERENCE}`;
         el.style.strokeDashoffset = `${-(offset + dash / 2)}`;
         el.style.stroke = item.color;
+        el.style.transitionDelay = `${newcomers * 70}ms`;
+        newcomers += 1;
         el.getBoundingClientRect();
+        setTimeout(() => { el.style.transitionDelay = ''; }, 1200);
       }
       seen.add(item.key);
       el.style.stroke = item.color;
       el.style.strokeLinecap = cap;
       el.style.strokeDasharray = `${dash} ${CIRCUMFERENCE}`;
       el.style.strokeDashoffset = `${-offset}`;
+      geometry.push({
+        key: item.key,
+        color: item.color,
+        share: total > 0 ? item.value / total : 0,
+        angle: data.length === 1 ? null : ((cursor + span / 2) / CIRCUMFERENCE) * Math.PI * 2,
+      });
       cursor += span;
     });
 
@@ -133,6 +150,7 @@ export function createDonut(svg) {
       el.style.opacity = '0';
       setTimeout(() => el.remove(), 450);
     }
+    return geometry;
   }
 
   return { update };
@@ -158,7 +176,7 @@ export function barChartHTML(buckets) {
     const height = Math.max(3, (bucket.totalCents / max) * 88);
     const cls = bucket.selected ? 'bar is-selected' : bucket.current ? 'bar is-current' : 'bar';
     const x = i + 0.5;
-    return `<line class="${cls}" x1="${x}" x2="${x}" y1="104" y2="${100 - height}" vector-effect="non-scaling-stroke"/>`;
+    return `<line class="${cls}" style="--i:${i}" x1="${x}" x2="${x}" y1="104" y2="${100 - height}" vector-effect="non-scaling-stroke"/>`;
   }).join('');
 
   const columns = buckets.map((bucket) => `
@@ -168,7 +186,7 @@ export function barChartHTML(buckets) {
     </button>`).join('');
 
   return `
-    <div class="bars" style="--bar-w:${n >= 10 ? 10 : n >= 8 ? 14 : 18}px">
+    <div class="bars" data-reveal style="--bar-w:${n >= 10 ? 10 : n >= 8 ? 14 : 18}px">
       <svg class="bars-svg" viewBox="0 0 ${n} 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
         <defs><clipPath id="bars-clip"><rect x="0" y="0" width="${n}" height="100"/></clipPath></defs>
         <line class="bars-base" x1="0" x2="${n}" y1="100" y2="100" vector-effect="non-scaling-stroke"/>

@@ -21,6 +21,7 @@ import {
   updatePeriodControls, replayAnimation,
 } from '../ui.js';
 import { expenseMeta } from './home.js';
+import { observeReveals } from '../atmosphere.js';
 
 const TIMELINE_TITLES = {
   day: 'Últimos 7 dias',
@@ -47,7 +48,7 @@ function bucketLabel(mode, range) {
 
 export function createAnalysisView(root) {
   root.innerHTML = `
-    <header class="page-header">
+    <header class="page-header" data-large-title>
       <h1 class="large-title" tabindex="-1">Análise</h1>
       <div class="header-actions">${todayPillHTML()}</div>
     </header>
@@ -57,6 +58,17 @@ export function createAnalysisView(root) {
   const body = root.querySelector('.analysis-body');
   let lastRangeKey = '';
 
+  /** Manchete da tela: o total, grande, e o período por extenso. */
+  function headlineHTML(summary) {
+    const [integer, fraction] = formatMoney(summary.totalCents).replace('R$ ', '').split(',');
+    return `
+      <div class="headline">
+        <p class="headline-eyebrow">Total gasto</p>
+        <p class="headline-value"><span class="currency">R$</span>${esc(integer)}<span class="headline-cents">,${esc(fraction)}</span></p>
+        <p class="headline-caption">em ${esc(formatPeriodLabel(summary.range))}</p>
+      </div>`;
+  }
+
   function metricsHTML(summary) {
     const top = summary.categories[0];
     const topCategory = top ? store.getCategory(top.categoryId) : null;
@@ -64,21 +76,17 @@ export function createAnalysisView(root) {
     return `
       <div class="metrics">
         <div class="metric">
-          <span class="metric-label">Total gasto</span>
-          <span class="metric-value">${formatMoney(summary.totalCents)}</span>
-        </div>
-        <div class="metric">
           <span class="metric-label">Despesas</span>
           <span class="metric-value">${summary.count}</span>
         </div>
         <div class="metric">
-          <span class="metric-label">Média por despesa</span>
+          <span class="metric-label">Média</span>
           <span class="metric-value">${formatMoney(summary.averageCents)}</span>
         </div>
-        <a class="metric metric-link" href="${esc(topHref)}">
+        <a class="metric metric-link metric-wide" href="${esc(topHref)}" style="${colorStyle(topCategory.color)}">
           <span class="metric-label">Maior categoria</span>
-          <span class="metric-value metric-category">${categoryIconHTML(topCategory, 'xs')}<span>${esc(topCategory.name)}</span></span>
-          <span class="metric-detail">${formatMoney(top.totalCents)} · ${formatPercent(top.percent)}</span>
+          <span class="metric-value metric-category">${categoryIconHTML(topCategory, 'sm')}<span>${esc(topCategory.name)}</span></span>
+          <span class="metric-detail">${formatMoney(top.totalCents)} · ${formatPercent(top.percent)} do total</span>
         </a>
       </div>`;
   }
@@ -89,8 +97,6 @@ export function createAnalysisView(root) {
     const previousCents = sumCents(filterByRange(store.getExpenses(), previous));
     const result = comparePeriods(summary.totalCents, previousCents);
     const previousLabel = formatPeriodLabel(previous);
-    const prefix = { day: 'o dia anterior', week: 'a semana anterior', month: 'o mês anterior', year: 'o ano anterior' }[range.mode];
-
     let content;
     if (result.status === 'empty') {
       return ''; // nada a comparar; o estado vazio da tela já informa isso
@@ -132,7 +138,7 @@ export function createAnalysisView(root) {
 
     return `
       <section class="analysis-section" aria-labelledby="an-compare">
-        <h2 class="section-title" id="an-compare">Comparado com ${esc(prefix)}</h2>
+        <h2 class="section-title" id="an-compare">Comparação</h2>
         <div class="card card-pad">${content}${partialHTML}</div>
       </section>`;
   }
@@ -171,12 +177,12 @@ export function createAnalysisView(root) {
   function categoriesHTML(summary) {
     if (summary.categories.length < 2) return '';
     const max = summary.categories[0].totalCents;
-    const rows = summary.categories.map((row) => {
+    const rows = summary.categories.map((row, index) => {
       const category = store.getCategory(row.categoryId);
       const href = `#/historico?cat=${encodeURIComponent(row.categoryId)}&de=${summary.range.start}&ate=${summary.range.end}`;
       return `
         <li>
-          <a class="hbar" href="${esc(href)}" style="${colorStyle(category.color)}">
+          <a class="hbar" href="${esc(href)}" style="${colorStyle(category.color)};--i:${index}">
             <span class="hbar-top">
               <span class="hbar-name">${categoryIconHTML(category, 'xs')}<span>${esc(category.name)}</span></span>
               <span class="hbar-value">${formatMoney(row.totalCents)} <span class="hbar-pct">${formatPercent(row.percent)}</span></span>
@@ -188,7 +194,7 @@ export function createAnalysisView(root) {
     return `
       <section class="analysis-section" aria-labelledby="an-categories">
         <h2 class="section-title" id="an-categories">Por categoria</h2>
-        <ul class="card hbar-list">${rows}</ul>
+        <ul class="card hbar-list" data-reveal>${rows}</ul>
       </section>`;
   }
 
@@ -228,12 +234,14 @@ export function createAnalysisView(root) {
         ${timelineHTML(range, today)}`;
     } else {
       body.innerHTML = `
+        ${headlineHTML(summary)}
         ${metricsHTML(summary)}
         ${comparisonHTML(summary, today)}
         ${timelineHTML(range, today)}
         ${categoriesHTML(summary)}
         ${topHTML(summary, today)}`;
     }
+    observeReveals(body);
 
     const rangeKey = `${range.mode}:${range.start}`;
     if (lastRangeKey && rangeKey !== lastRangeKey) replayAnimation(body, 'is-entering');

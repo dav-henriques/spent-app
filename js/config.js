@@ -10,7 +10,7 @@
 export const APP_NAME = 'Gastos';
 
 /** Versão exibida em Ajustes. Mantenha igual à VERSION de service-worker.js. */
-export const APP_VERSION = '1.1.1';
+export const APP_VERSION = '1.2.0';
 
 /**
  * Versão do formato dos dados salvos. Ao mudar a estrutura das despesas ou

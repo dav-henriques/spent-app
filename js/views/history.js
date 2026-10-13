@@ -20,7 +20,7 @@ export function createHistoryView(root) {
   let visibleCount = PAGE_SIZE;
 
   root.innerHTML = `
-    <header class="page-header">
+    <header class="page-header" data-large-title>
       <h1 class="large-title" tabindex="-1">Histórico</h1>
     </header>
     <div class="search">

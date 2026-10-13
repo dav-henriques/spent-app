@@ -222,6 +222,43 @@ export function formatPeriodLabel(range, { compact = false, today = todayISO() }
   }
 }
 
+/**
+ * Título grande do período (o período *é* o título da tela inicial) e a
+ * linha curta acima dele:
+ *   dia    → "Hoje"              / "Dia · 12 de outubro"
+ *   semana → "12 – 18 out."      / "Semana · 2026"
+ *   mês    → "Outubro"           / "Mês · 2026"
+ *   ano    → "2026"              / "Ano inteiro"
+ */
+export function formatPeriodTitle(range, today = todayISO()) {
+  const s = parseISODate(range.start);
+  const e = parseISODate(range.end);
+  const sameYearAsToday = s.y === parseISODate(today).y;
+  switch (range.mode) {
+    case 'day':
+      return {
+        title: capitalize(formatDayCompact(range.start, today)),
+        eyebrow: `Dia · ${formatLongDate(range.start, { withYear: !sameYearAsToday })}`,
+      };
+    case 'week': {
+      const month = (m) => `${MONTHS_SHORT[m - 1]}.`;
+      const title = s.m === e.m
+        ? `${dayOfMonth(s.d)} – ${e.d} ${month(e.m)}`
+        : `${dayOfMonth(s.d)} ${month(s.m)} – ${dayOfMonth(e.d)} ${month(e.m)}`;
+      return { title, eyebrow: `Semana · ${s.y === e.y ? s.y : `${s.y}–${e.y}`}` };
+    }
+    case 'month':
+      return { title: capitalize(MONTHS[s.m - 1]), eyebrow: `Mês · ${s.y}` };
+    case 'year':
+      return { title: String(s.y), eyebrow: 'Ano inteiro' };
+    default:
+      return { title: '', eyebrow: '' };
+  }
+}
+
+/** Substantivo do período para frases: "do dia", "da semana", "do mês", "do ano". */
+export const PERIOD_NOUNS = { day: 'do dia', week: 'da semana', month: 'do mês', year: 'do ano' };
+
 /** Cabeçalho de grupo diário: "Hoje", "Ontem" ou "Sábado, 10 de outubro". */
 export function formatDayHeading(iso, today = todayISO()) {
   if (iso === today) return 'Hoje';

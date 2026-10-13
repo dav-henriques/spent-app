@@ -26,6 +26,7 @@ import { createRouter } from './js/router.js';
 import { initUI, isSheetOpen, showToast } from './js/ui.js';
 import { openExpenseForm } from './js/expense-form.js';
 import { registerServiceWorker, onUpdateStateChange } from './js/pwa.js';
+import { initAtmosphere } from './js/atmosphere.js';
 import { createHomeView } from './js/views/home.js';
 import { createHistoryView } from './js/views/history.js';
 import { createAnalysisView } from './js/views/analysis.js';
@@ -33,9 +34,22 @@ import { createSettingsView } from './js/views/settings.js';
 
 store.init();
 initUI();
+initAtmosphere();
 
 document.querySelectorAll('[data-app-name]').forEach((el) => { el.textContent = APP_NAME; });
 document.querySelector('meta[name="apple-mobile-web-app-title"]')?.setAttribute('content', APP_NAME);
+
+/*
+ * Tamanho de texto do sistema: no iPhone, o CSS usa a fonte "-apple-system-body",
+ * que acompanha o ajuste de Tamanho do Texto. Em tamanhos de acessibilidade, as
+ * linhas passam a empilhar informações em vez de cortá-las.
+ */
+function syncTextSize() {
+  const base = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 17;
+  document.documentElement.classList.toggle('is-large-text', base >= 23);
+}
+syncTextSize();
+window.addEventListener('resize', syncTextSize);
 
 const views = {
   home: createHomeView(document.getElementById('view-home')),
@@ -44,6 +58,9 @@ const views = {
   settings: createSettingsView(document.getElementById('view-settings')),
 };
 const router = createRouter(views);
+
+// Primeira renderização concluída: a abertura (se apareceu) se dissolve.
+requestAnimationFrame(() => document.documentElement.classList.add('is-ready'));
 
 // Qualquer mudança nos dados ou no período atualiza a tela visível na hora.
 store.subscribe(() => router.renderCurrent());

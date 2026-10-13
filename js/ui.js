@@ -5,7 +5,7 @@
  */
 import { formatMoney } from './money.js';
 import {
-  capitalize, formatPeriodLabel, getPeriodRange, isDateInRange,
+  capitalize, formatPeriodLabel, formatPeriodTitle, getPeriodRange, isDateInRange,
 } from './dates.js';
 
 /* ------------------------------------------------------------------------ */
@@ -58,7 +58,7 @@ export function expenseRowHTML(expense, category, { meta = '', flash = false } =
           <span class="expense-title">${esc(expense.title)}</span>
           <span class="expense-meta">${esc(meta)}</span>
         </span>
-        <span class="expense-amount">${formatMoney(-expense.amountCents)}</span>
+        <span class="expense-amount"><span class="amount-sign" aria-hidden="true">−</span>${formatMoney(expense.amountCents)}</span>
       </button>
     </li>`;
 }
@@ -79,12 +79,7 @@ const TODAY_LABELS = { day: 'Hoje', week: 'Esta semana', month: 'Este mês', yea
 const PREV_LABELS = { day: 'Dia anterior', week: 'Semana anterior', month: 'Mês anterior', year: 'Ano anterior' };
 const NEXT_LABELS = { day: 'Próximo dia', week: 'Próxima semana', month: 'Próximo mês', year: 'Próximo ano' };
 
-/**
- * Navegação entre períodos (usada no Início e na Análise). O rótulo do
- * período é também o botão de um menu suspenso para escolher entre dia,
- * semana, mês e ano. `id` diferencia o menu de cada tela.
- */
-export function periodControlsHTML(id) {
+function periodMenuHTML(id) {
   const options = Object.entries(MODE_LABELS).map(([mode, label]) => `
     <button type="button" class="period-option" role="menuitemradio" aria-checked="false" tabindex="-1"
       data-action="period-mode" data-mode="${mode}">
@@ -96,9 +91,40 @@ export function periodControlsHTML(id) {
       ${icon(`period-${mode}`, 'period-option-icon')}
     </button>`).join('');
   return `
+    <div class="period-scrim" data-period-scrim aria-hidden="true"></div>
+    <div class="period-menu" id="period-menu-${id}" role="menu" aria-label="Ver gastos por">${options}</div>`;
+}
+
+/**
+ * Navegação entre períodos, com o rótulo do período servindo de botão para um
+ * menu (dia, semana, mês, ano). `id` diferencia o menu de cada tela.
+ *
+ * - variant "hero" (Início): o período é o título grande da tela, com uma
+ *   linha curta acima ("Mês · 2026") e as setas ao lado.
+ * - variant "compact" (Análise): cápsula entre as setas.
+ */
+export function periodControlsHTML(id, { variant = 'compact' } = {}) {
+  const prev = `<button type="button" class="nav-arrow" data-action="period-prev" aria-label="Período anterior">${icon('chevron-left')}</button>`;
+  const next = `<button type="button" class="nav-arrow" data-action="period-next" aria-label="Próximo período">${icon('chevron-right')}</button>`;
+  if (variant === 'hero') {
+    return `
+      <div class="period period-hero" data-large-title>
+        <div class="period-picker">
+          <button type="button" class="period-trigger" data-period-trigger aria-haspopup="menu" aria-expanded="false"
+            aria-controls="period-menu-${id}">
+            <span class="period-eyebrow" aria-hidden="true"></span>
+            <span class="period-title-row"><span class="period-label" aria-live="polite"></span>${icon('chevron-down', 'period-chevron')}</span>
+            <span class="visually-hidden period-mode-hint"></span>
+          </button>
+          ${periodMenuHTML(id)}
+        </div>
+        <div class="period-arrows">${todayPillHTML()}${prev}${next}</div>
+      </div>`;
+  }
+  return `
     <div class="period">
       <div class="period-nav">
-        <button type="button" class="nav-arrow" data-action="period-prev" aria-label="Período anterior">${icon('chevron-left')}</button>
+        ${prev}
         <div class="period-picker">
           <button type="button" class="period-trigger" data-period-trigger aria-haspopup="menu" aria-expanded="false"
             aria-controls="period-menu-${id}">
@@ -106,13 +132,9 @@ export function periodControlsHTML(id) {
             <span class="visually-hidden period-mode-hint"></span>
             ${icon('chevron-down', 'period-chevron')}
           </button>
-          <div class="period-scrim" data-period-scrim aria-hidden="true"></div>
-          <div class="period-menu" id="period-menu-${id}" role="menu" aria-label="Ver gastos por">
-            <p class="period-menu-title" aria-hidden="true">Ver gastos por</p>
-            ${options}
-          </div>
+          ${periodMenuHTML(id)}
         </div>
-        <button type="button" class="nav-arrow" data-action="period-next" aria-label="Próximo período">${icon('chevron-right')}</button>
+        ${next}
       </div>
     </div>`;
 }
@@ -123,7 +145,14 @@ export function todayPillHTML() {
 
 export function updatePeriodControls(root, range, today) {
   const label = root.querySelector('.period-label');
-  if (label) {
+  const hero = root.querySelector('.period-hero');
+  if (label && hero) {
+    // O período como título: o tamanho cede um pouco para rótulos longos.
+    const { title, eyebrow } = formatPeriodTitle(range, today);
+    if (label.textContent !== title) label.textContent = title;
+    hero.querySelector('.period-eyebrow').textContent = eyebrow;
+    hero.dataset.size = title.length > 13 ? 's' : title.length > 9 ? 'm' : 'l';
+  } else if (label) {
     const text = capitalize(formatPeriodLabel(range, { compact: true, today }));
     if (label.textContent !== text) label.textContent = text;
   }
@@ -267,6 +296,8 @@ export const isSheetOpen = () => current !== null;
  */
 function lockScroll() {
   lockedScrollY = window.scrollY;
+  // Usado pelo CSS para recuar a página a partir do ponto que está na tela.
+  document.documentElement.style.setProperty('--lock-y', `${lockedScrollY}px`);
   const { style } = document.body;
   style.position = 'fixed';
   style.top = `-${lockedScrollY}px`;

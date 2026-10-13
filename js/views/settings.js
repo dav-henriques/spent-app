@@ -28,7 +28,7 @@ const symbol = (name, variant = '') => `<span class="row-symbol${variant ? ` row
 
 export function createSettingsView(root) {
   root.innerHTML = `
-    <header class="page-header">
+    <header class="page-header" data-large-title>
       <h1 class="large-title" tabindex="-1">Ajustes</h1>
     </header>
     <div class="settings-body"></div>
@@ -128,7 +128,7 @@ export function createSettingsView(root) {
 
     const installHint = isStandalone() ? '' : `
       <li class="row row-static row-multiline">
-        ${symbol('share')}
+        ${symbol('share', 'blue')}
         <span class="row-main">Instalar na tela de início
           <span class="row-sub">${isIOS()
             ? 'No Safari, toque em Compartilhar e depois em “Adicionar à Tela de Início”. Instalado, o app abre em tela cheia e funciona sem internet.'
@@ -155,13 +155,13 @@ export function createSettingsView(root) {
         <h2 class="group-title" id="st-data">Dados</h2>
         <ul class="card list-inset">
           <li><button type="button" class="row" data-settings="export-json">
-            ${symbol('download')}<span class="row-main">Exportar backup<span class="row-sub">Arquivo JSON para restaurar depois</span></span>
+            ${symbol('download', 'blue')}<span class="row-main">Exportar backup<span class="row-sub">Arquivo JSON para restaurar depois</span></span>
           </button></li>
           <li><button type="button" class="row" data-settings="export-csv"${expenseCount ? '' : ' disabled'}>
-            ${symbol('table')}<span class="row-main">Exportar planilha<span class="row-sub">CSV para Excel, Numbers ou Planilhas</span></span>
+            ${symbol('table', 'green')}<span class="row-main">Exportar planilha<span class="row-sub">CSV para Excel, Numbers ou Planilhas</span></span>
           </button></li>
           <li><button type="button" class="row" data-settings="import">
-            ${symbol('upload')}<span class="row-main">Restaurar backup<span class="row-sub">Importar um JSON exportado antes</span></span>
+            ${symbol('upload', 'orange')}<span class="row-main">Restaurar backup<span class="row-sub">Importar um JSON exportado antes</span></span>
           </button></li>
         </ul>
         <p class="group-footer">${icon('lock', 'icon-xs')} ${plural(expenseCount, 'despesa', 'despesas')} e ${plural(categories.length, 'categoria', 'categorias')} ficam salvas só neste aparelho. Nada é enviado para servidores e não há sincronização entre aparelhos. Limpar os dados do navegador ou remover o app apaga os registros — exporte um backup de vez em quando.</p>
@@ -175,10 +175,10 @@ export function createSettingsView(root) {
           ${installHint}
           ${update === 'waiting' ? `
             <li><button type="button" class="row" data-settings="update">
-              ${symbol('download')}<span class="row-main">Atualização disponível<span class="row-sub">Toque para carregar a nova versão</span></span>
+              ${symbol('download', 'blue')}<span class="row-main">Atualização disponível<span class="row-sub">Toque para carregar a nova versão</span></span>
             </button></li>` : ''}
           <li class="row row-static">
-            ${symbol('info')}
+            ${symbol('info', 'gray')}
             <span class="row-main"><span data-app-name>${esc(APP_NAME)}</span></span>
             <span class="row-detail">${esc(APP_VERSION)}</span>
           </li>
